@@ -235,6 +235,7 @@ class MediaItemModel {
 
   bool get isTV => type.toLowerCase() == 'tv' || episodes.isNotEmpty;
   bool get is4K => resolution.toUpperCase().contains('4K') || (bdinfo?.video?.width ?? 0) >= 3840;
+  bool get isHDR => bdinfo?.video?.isHDR ?? (discType == 'UHD' || resolution.toUpperCase().contains('4K'));
   bool get hasDolbyVision => bdinfo?.video?.isDolbyVision ?? false;
   bool get hasAtmos => bdinfo?.audioTracks.any((a) => a.isAtmos || a.codec.contains('Atmos')) ?? false;
 

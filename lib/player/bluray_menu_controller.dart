@@ -17,56 +17,56 @@ class BluRayMenuController {
   Future<void> showTopMenu() async {
     try {
       // 触发 libbluray / mpv discnav 导航命令
-      await player.platform?.command("discnav", ["menu"]);
+      await (player.platform as dynamic)?.command(["discnav", "menu"]);
     } catch (_) {}
   }
 
   /// 呼出弹出式菜单 (Pop-up Menu)
   Future<void> showPopupMenu() async {
     try {
-      await player.platform?.command("discnav", ["popup"]);
+      await (player.platform as dynamic)?.command(["discnav", "popup"]);
     } catch (_) {}
   }
 
   /// 菜单光标上移
   Future<void> navigateUp() async {
     try {
-      await player.platform?.command("discnav", ["up"]);
+      await (player.platform as dynamic)?.command(["discnav", "up"]);
     } catch (_) {}
   }
 
   /// 菜单光标下移
   Future<void> navigateDown() async {
     try {
-      await player.platform?.command("discnav", ["down"]);
+      await (player.platform as dynamic)?.command(["discnav", "down"]);
     } catch (_) {}
   }
 
   /// 菜单光标左移
   Future<void> navigateLeft() async {
     try {
-      await player.platform?.command("discnav", ["left"]);
+      await (player.platform as dynamic)?.command(["discnav", "left"]);
     } catch (_) {}
   }
 
   /// 菜单光标右移
   Future<void> navigateRight() async {
     try {
-      await player.platform?.command("discnav", ["right"]);
+      await (player.platform as dynamic)?.command(["discnav", "right"]);
     } catch (_) {}
   }
 
   /// 确认/激活选中的菜单项
   Future<void> activateSelection() async {
     try {
-      await player.platform?.command("discnav", ["select"]);
+      await (player.platform as dynamic)?.command(["discnav", "select"]);
     } catch (_) {}
   }
 
   /// 触发 BD-J 彩色功能按键 (红/绿/黄/蓝)
   Future<void> pressColorButton(BluRayColorButton button) async {
     try {
-      await player.platform?.command("discnav", [button.name]);
+      await (player.platform as dynamic)?.command(["discnav", button.name]);
     } catch (_) {}
   }
 }

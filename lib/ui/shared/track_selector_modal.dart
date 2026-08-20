@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 import '../../core/constants.dart';
 import '../../models/media_item.dart';
 import '../../player/player_controller.dart';

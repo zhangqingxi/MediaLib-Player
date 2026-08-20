@@ -28,6 +28,7 @@ class StreamUrlResponse {
 /// 播放进度记录与断点
 class PlaybackProgressModel {
   final bool hasRecord;
+  final int episodeId;
   final int positionSec;
   final int durationSec;
   final double progress;
@@ -37,6 +38,7 @@ class PlaybackProgressModel {
 
   PlaybackProgressModel({
     this.hasRecord = false,
+    this.episodeId = 0,
     this.positionSec = 0,
     this.durationSec = 0,
     this.progress = 0.0,
@@ -48,6 +50,7 @@ class PlaybackProgressModel {
   factory PlaybackProgressModel.fromMap(Map<String, dynamic> map) {
     return PlaybackProgressModel(
       hasRecord: map['has_record'] ?? false,
+      episodeId: map['episode_id'] ?? 0,
       positionSec: map['position_sec'] ?? 0,
       durationSec: map['duration_sec'] ?? 0,
       progress: (map['progress'] is num) ? (map['progress'] as num).toDouble() : 0.0,

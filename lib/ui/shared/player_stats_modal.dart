@@ -74,15 +74,15 @@ class PlayerStatsModal extends StatelessWidget {
             _buildStatRow("媒介规格", "${item.discType.isNotEmpty ? item.discType : 'STREAM'} / ${item.edition.isNotEmpty ? item.edition : '标准版'}"),
             _buildStatRow(
               "视频解码",
-              bd != null
-                  ? "${bd.videoCodec} ${bd.resolution} @ ${bd.fps.toStringAsFixed(3)} fps (${bd.bitDepth}-bit ${bd.chroma})"
+              bd?.video != null
+                  ? "${bd!.video!.codec} ${bd.video!.resolutionLabel} (${bd.video!.bitDepth}-bit)"
                   : "${item.resolution} @ 23.976 fps",
               highlightColor: AppColors.primary,
             ),
             _buildStatRow(
               "HDR / 动态范围",
-              bd != null && bd.dvProfile.isNotEmpty
-                  ? "Dolby Vision (${bd.dvProfile}) + ${bd.hdrType}"
+              bd?.video != null && bd!.video!.isDolbyVision
+                  ? "Dolby Vision (${bd.video!.hdrType})"
                   : item.hasDolbyVision
                       ? "Dolby Vision (Dual-Layer FEL/MEL)"
                       : item.isHDR
@@ -97,13 +97,13 @@ class PlayerStatsModal extends StatelessWidget {
             _buildStatRow(
               "音频输出",
               bd != null && bd.audioTracks.isNotEmpty
-                  ? bd.audioTracks.first
+                  ? bd.audioTracks.map((a) => "${a.codec} ${a.channelLayout}").join(" / ")
                   : "7.1 / 5.1 源码透传 (Bitstream Passthrough)",
             ),
             _buildStatRow(
               "字幕图层",
-              bd != null && bd.subTracks.isNotEmpty
-                  ? bd.subTracks.join(" / ")
+              bd != null && bd.subtitleTracks.isNotEmpty
+                  ? bd.subtitleTracks.map((s) => "${s.language} (${s.format})").join(" / ")
                   : "ASS / PGS Bluray 硬件光栅化渲染",
             ),
             _buildStatRow("内存缓冲与时延", "Demuxer Buffer: 32MB / Readahead: 20.0s / 丢帧率: 0 fps"),

@@ -46,7 +46,6 @@ class MediaLibPlayerController extends ChangeNotifier {
     player = Player(
       configuration: const PlayerConfiguration(
         title: "MediaLib Player",
-        ready: true,
         bufferSize: 32 * 1024 * 1024, // 32MB 极速预读缓冲
       ),
     );

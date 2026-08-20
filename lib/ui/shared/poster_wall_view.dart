@@ -210,7 +210,8 @@ class _PosterWallViewState extends State<PosterWallView> {
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [\n              // 1. 顶部状态栏与专区胶囊
+            children: [
+              // 1. 顶部状态栏与专区胶囊
               _buildTopBar(isTVOrDesktop),
 
               // 2. 流派快速分类条
