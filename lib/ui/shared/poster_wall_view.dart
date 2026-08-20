@@ -3,6 +3,7 @@ import '../../core/constants.dart';
 import '../../models/media_item.dart';
 import '../../grpc/client.dart';
 import '../tv/tv_focus_card.dart';
+import '../tv/tv_navigation_wrapper.dart';
 import 'media_detail_modal.dart';
 import 'settings_modal.dart';
 
@@ -69,29 +70,32 @@ class _PosterWallViewState extends State<PosterWallView> {
   Widget build(BuildContext context) {
     final isTVOrDesktop = MediaQuery.of(context).size.width > 700;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. 顶部状态栏与专区胶囊
-            _buildTopBar(isTVOrDesktop),
+    return TVNavigationWrapper(
+      onMenuPressed: _openSettingsModal,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. 顶部状态栏与专区胶囊
+              _buildTopBar(isTVOrDesktop),
 
-            // 2. 流派快速分类条
-            _buildGenreFilterBar(),
+              // 2. 流派快速分类条
+              _buildGenreFilterBar(),
 
-            // 3. 海报墙网格
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    )
-                  : _items.isEmpty
-                      ? _buildEmptyState()
-                      : _buildPosterGrid(isTVOrDesktop),
-            ),
-          ],
+              // 3. 海报墙网格
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: AppColors.primary),
+                      )
+                    : _items.isEmpty
+                        ? _buildEmptyState()
+                        : _buildPosterGrid(isTVOrDesktop),
+              ),
+            ],
+          ),
         ),
       ),
     );
