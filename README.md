@@ -50,22 +50,33 @@ MediaLib-Player/
 
 ---
 
-## 🚀 编译与运行
+## 🚀 编译、运行与部署
 
-### 1. 运行桌面版 (Windows PC / macOS)
-```bash
-# 获取依赖
+### 1. Windows PC 桌面端
+> 📖 详细的环境依赖、MSVC C++ 工具链、零环境变量免配置自包含机制与杜比视界显卡配置请查阅 **[Windows 桌面端环境配置指南](docs/WINDOWS_SETUP.md)**。
+
+```powershell
+# 获取工程依赖
 flutter pub get
 
-# 运行 Windows 桌面端
+# 本地运行与调试 (Windows)
 flutter run -d windows
+
+# 生产环境 Release 独立可执行程序打包
+flutter build windows --release
 ```
+*编译生成的绿色免安装运行包位于 `build/windows/x64/runner/Release/`，打包压缩即可分发使用。*
 
 ### 2. 构建 Android TV 盒子 / 手机版 APK
 ```bash
-# 构建全架构 release APK (支持 Leanback TV Launcher)
+# 构建全架构 release APK (内置 Android Leanback 电视大屏适配)
 flutter build apk --release
 ```
+
+---
+
+## 📖 核心文档索引
+- 🖥️ **[Windows 桌面端环境配置与构建部署指南](docs/WINDOWS_SETUP.md)**：包含 Visual Studio 2022 C++ 环境、Direct3D 11VA / libplacebo 发烧级渲染、杜比视界/HDR 显卡配置与快捷键大全。
 
 ---
 
