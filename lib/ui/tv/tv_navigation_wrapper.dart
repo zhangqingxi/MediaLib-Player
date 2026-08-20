@@ -7,6 +7,7 @@ class TVNavigationWrapper extends StatelessWidget {
   final VoidCallback? onMenuPressed;
   final VoidCallback? onPlayPausePressed;
   final VoidCallback? onBackPressed;
+  final VoidCallback? onSearchPressed;
 
   const TVNavigationWrapper({
     Key? key,
@@ -14,6 +15,7 @@ class TVNavigationWrapper extends StatelessWidget {
     this.onMenuPressed,
     this.onPlayPausePressed,
     this.onBackPressed,
+    this.onSearchPressed,
   }) : super(key: key);
 
   @override
@@ -29,7 +31,17 @@ class TVNavigationWrapper extends StatelessWidget {
             return KeyEventResult.handled;
           }
 
-          // 2. 遥控器 Play/Pause 多媒体键
+          // 2. 搜索快捷键 (快捷键 /、Ctrl+F 或遥控器搜索键)
+          if (event.logicalKey == LogicalKeyboardKey.slash ||
+              event.logicalKey == LogicalKeyboardKey.find ||
+              (event.isControlPressed && event.logicalKey == LogicalKeyboardKey.keyF)) {
+            if (onSearchPressed != null) {
+              onSearchPressed!();
+              return KeyEventResult.handled;
+            }
+          }
+
+          // 3. 遥控器 Play/Pause 多媒体键
           if (event.logicalKey == LogicalKeyboardKey.mediaPlayPause ||
               event.logicalKey == LogicalKeyboardKey.mediaPlay ||
               event.logicalKey == LogicalKeyboardKey.mediaPause) {
@@ -37,7 +49,7 @@ class TVNavigationWrapper extends StatelessWidget {
             return KeyEventResult.handled;
           }
 
-          // 3. 返回键
+          // 4. 返回键
           if (event.logicalKey == LogicalKeyboardKey.escape ||
               event.logicalKey == LogicalKeyboardKey.backspace) {
             if (onBackPressed != null) {

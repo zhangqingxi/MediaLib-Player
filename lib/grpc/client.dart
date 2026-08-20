@@ -114,6 +114,42 @@ class MediaLibClient {
     return {"valid": false};
   }
 
+  /// 发起 TV 大屏扫码/PIN码快速配对
+  Future<Map<String, dynamic>> startPairing() async {
+    final uri = Uri.parse("$baseUrl/api/player/pair/start");
+    try {
+      final resp = await http
+          .post(
+            uri,
+            headers: {"Content-Type": "application/json"},
+            body: json.encode({"device_name": _deviceName, "platform": "TV"}),
+          )
+          .timeout(const Duration(seconds: 5));
+
+      if (resp.statusCode == 200) {
+        return json.decode(utf8.decode(resp.bodyBytes));
+      }
+    } catch (_) {}
+    return {"error": "发起配对请求失败"};
+  }
+
+  /// 检查配对会话授权状态
+  Future<Map<String, dynamic>> checkPairingStatus(String sessionId) async {
+    final uri = Uri.parse("$baseUrl/api/player/pair/status?session_id=$sessionId");
+    try {
+      final resp = await http.get(uri).timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200) {
+        final data = json.decode(utf8.decode(resp.bodyBytes));
+        if (data['status'] == 'authorized' && data['token'] != null) {
+          _authToken = data['token'];
+          _currentUser = data;
+        }
+        return data;
+      }
+    } catch (_) {}
+    return {"status": "pending"};
+  }
+
   // ==========================================
   // 2. 媒体海报墙与详情服务
   // ==========================================
@@ -161,6 +197,21 @@ class MediaLibClient {
     } catch (e) {
       // 容错处理
     }
+    return [];
+  }
+
+  /// 获取所有合辑/系列专题列表
+  Future<List<Map<String, dynamic>>> listCollections() async {
+    final uri = Uri.parse("$baseUrl/api/collections");
+    try {
+      final resp = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        final data = json.decode(utf8.decode(resp.bodyBytes));
+        if (data is List) {
+          return data.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (_) {}
     return [];
   }
 

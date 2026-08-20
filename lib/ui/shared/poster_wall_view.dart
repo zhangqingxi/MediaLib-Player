@@ -6,6 +6,8 @@ import '../tv/tv_focus_card.dart';
 import '../tv/tv_navigation_wrapper.dart';
 import 'media_detail_modal.dart';
 import 'settings_modal.dart';
+import 'search_modal.dart';
+import 'collection_detail_modal.dart';
 
 /// 跨端自适应海报墙主界面 (Poster Wall Home)
 class PosterWallView extends StatefulWidget {
@@ -55,6 +57,136 @@ class _PosterWallViewState extends State<PosterWallView> {
     );
   }
 
+  void _openSearchModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const SearchModal(),
+    );
+  }
+
+  void _openCollectionsDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: _client.listCollections(),
+        builder: (context, snapshot) {
+          final collections = snapshot.data ?? [];
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+            child: Container(
+              width: 800,
+              height: 540,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.85),
+                    blurRadius: 36,
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLight,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.collections_bookmark_rounded, color: AppColors.primary, size: 24),
+                        const SizedBox(width: 12),
+                        const Text(
+                          "经典系列影视合辑 (Franchise Boxsets)",
+                          style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AppColors.textMuted),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: snapshot.connectionState == ConnectionState.waiting
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                        : collections.isEmpty
+                            ? const Center(
+                                child: Text("媒体库中暂未发现系列合辑", style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(20),
+                                itemCount: collections.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                itemBuilder: (ctx, i) {
+                                  final col = collections[i];
+                                  final name = col['Name'] ?? col['name'] ?? '未命名合辑';
+                                  final count = col['ItemCount'] ?? col['item_count'] ?? 0;
+                                  return InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).pop();
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => CollectionDetailModal(collectionName: name),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.background,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withOpacity(0.06)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.movie_filter_rounded, color: AppColors.primary, size: 22),
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            child: Text(
+                                              name,
+                                              style: const TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surfaceLight,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              "$count 部作品",
+                                              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 14),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _openSettingsModal() {
     showDialog(
       context: context,
@@ -72,13 +204,13 @@ class _PosterWallViewState extends State<PosterWallView> {
 
     return TVNavigationWrapper(
       onMenuPressed: _openSettingsModal,
+      onSearchPressed: _openSearchModal,
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. 顶部状态栏与专区胶囊
+            children: [\n              // 1. 顶部状态栏与专区胶囊
               _buildTopBar(isTVOrDesktop),
 
               // 2. 流派快速分类条
@@ -130,7 +262,7 @@ class _PosterWallViewState extends State<PosterWallView> {
               ),
             ],
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: 20),
 
           // 媒介形态专区胶囊 (4K UHD / 蓝光原盘 / 3D)
           if (isTVOrDesktop)
@@ -165,13 +297,56 @@ class _PosterWallViewState extends State<PosterWallView> {
               ),
             ),
 
-          // 右侧：刷新与服务器连接设置按钮
+          // 搜索触发按键
+          InkWell(
+            onTap: _openSearchModal,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 18),
+                  if (isTVOrDesktop) ...[
+                    const SizedBox(width: 6),
+                    const Text("搜索", style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text("/", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // 系列合辑快捷入口
+          IconButton(
+            icon: const Icon(Icons.collections_bookmark_outlined, color: AppColors.textSecondary, size: 22),
+            tooltip: "经典系列合辑展台",
+            onPressed: _openCollectionsDialog,
+          ),
+          const SizedBox(width: 4),
+
+          // 刷新媒体库
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary, size: 22),
             tooltip: "刷新媒体库",
             onPressed: _loadMediaItems,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
+
+          // 服务器与账号设置
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppColors.textSecondary, size: 22),
             tooltip: "服务器与账号设置",

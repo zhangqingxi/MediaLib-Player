@@ -6,6 +6,7 @@ import '../../models/playback.dart';
 import '../../grpc/client.dart';
 import 'bdinfo_capsule_widget.dart';
 import 'episode_selector_widget.dart';
+import 'collection_detail_modal.dart';
 import 'player_view.dart';
 
 /// 影片详情与版本/分集选择弹窗 (Media Detail Modal)
@@ -270,7 +271,47 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                                 if (item.edition.isNotEmpty) _buildSpecBadge(item.edition),
                               ],
                             ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
+
+                          // 所属系列合辑提示与跳转
+                          if (item.collection.isNotEmpty) ...[
+                            InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => CollectionDetailModal(collectionName: item.collection),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.35)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.collections_bookmark_rounded, color: AppColors.primary, size: 14),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "所属系列：${item.collection}",
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.primary, size: 11),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
 
                           // 剧情简介
                           SizedBox(
