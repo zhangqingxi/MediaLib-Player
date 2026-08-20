@@ -7,15 +7,18 @@ import '../../player/player_controller.dart';
 import '../../player/bluray_menu_controller.dart';
 import 'bdinfo_capsule_widget.dart';
 import 'track_selector_modal.dart';
+import 'episode_selector_widget.dart';
 
-/// 发烧级全屏播放器界面 (含 OSD、音轨/字幕面板与原盘菜单交互)
+/// 发烧级全屏播放器界面 (含 OSD、音轨/字幕面板、剧集快速切集与原盘菜单交互)
 class PlayerView extends StatefulWidget {
   final MediaItemModel item;
+  final EpisodeModel? episode;
   final int startPositionSec;
 
   const PlayerView({
     Key? key,
     required this.item,
+    this.episode,
     this.startPositionSec = 0,
   }) : super(key: key);
 
@@ -27,13 +30,18 @@ class _PlayerViewState extends State<PlayerView> {
   late final MediaLibPlayerController _controller;
   late final BluRayMenuController _menuController;
   bool _showOsd = true;
+  bool _showEpisodeDrawer = false;
 
   @override
   void initState() {
     super.initState();
     _controller = MediaLibPlayerController();
     _menuController = BluRayMenuController(_controller.player);
-    _controller.playItem(widget.item, startPositionSec: widget.startPositionSec);
+    _controller.playItem(
+      widget.item,
+      episode: widget.episode,
+      startPositionSec: widget.startPositionSec,
+    );
 
     // 隐藏状态栏全屏沉浸
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -56,6 +64,10 @@ class _PlayerViewState extends State<PlayerView> {
     );
   }
 
+  void _toggleEpisodeDrawer() {
+    setState(() => _showEpisodeDrawer = !_showEpisodeDrawer);
+  }
+
   String _formatDuration(Duration d) {
     final hours = d.inHours;
     final minutes = d.inMinutes.remainder(60);
@@ -69,6 +81,7 @@ class _PlayerViewState extends State<PlayerView> {
   @override
   Widget build(BuildContext context) {
     final isBluRay = widget.item.discType == "BD" || widget.item.discType == "UHD" || widget.item.discType == "3D";
+    final isTVSeries = widget.item.isTV;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -92,12 +105,20 @@ class _PlayerViewState extends State<PlayerView> {
               // M 键呼出音轨与字幕调谐面板
               _openTrackSelector();
               return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyE && isTVSeries) {
+              // E 键呼出剧集选集抽屉
+              _toggleEpisodeDrawer();
+              return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.keyB && isBluRay) {
               // B 键呼出原盘顶层菜单
               _menuController.showTopMenu();
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.escape ||
                 event.logicalKey == LogicalKeyboardKey.backspace) {
+              if (_showEpisodeDrawer) {
+                setState(() => _showEpisodeDrawer = false);
+                return KeyEventResult.handled;
+              }
               Navigator.of(context).pop();
               return KeyEventResult.handled;
             }
@@ -106,7 +127,11 @@ class _PlayerViewState extends State<PlayerView> {
         },
         child: GestureDetector(
           onTap: () {
-            setState(() => _showOsd = !_showOsd);
+            if (_showEpisodeDrawer) {
+              setState(() => _showEpisodeDrawer = false);
+            } else {
+              setState(() => _showOsd = !_showOsd);
+            }
           },
           child: Stack(
             fit: StackFit.expand,
@@ -133,7 +158,10 @@ class _PlayerViewState extends State<PlayerView> {
               ),
 
               // 3. 悬浮 OSD 控制层
-              if (_showOsd) _buildOsdOverlay(isBluRay),
+              if (_showOsd) _buildOsdOverlay(isBluRay, isTVSeries),
+
+              // 4. 右侧侧边剧集选集抽屉 (Episode Drawer)
+              if (_showEpisodeDrawer && isTVSeries) _buildEpisodeDrawer(),
             ],
           ),
         ),
@@ -141,10 +169,12 @@ class _PlayerViewState extends State<PlayerView> {
     );
   }
 
-  Widget _buildOsdOverlay(bool isBluRay) {
+  Widget _buildOsdOverlay(bool isBluRay, bool isTVSeries) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (ctx, _) {
+        final currentEp = _controller.currentEpisode;
+
         return Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -161,7 +191,7 @@ class _PlayerViewState extends State<PlayerView> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // 顶部栏：返回键 + 片名 + 原盘菜单按键 + BDINFO 胶囊
+              // 顶部栏：返回键 + 片名/剧集集数 + 原盘菜单按键 + BDINFO 胶囊
               Row(
                 children: [
                   IconButton(
@@ -174,15 +204,39 @@ class _PlayerViewState extends State<PlayerView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          widget.item.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.item.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (currentEp != null) ...[
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  "${currentEp.episodeLabel} ${currentEp.title}",
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         if (widget.item.originalTitle.isNotEmpty)
                           Text(
@@ -194,6 +248,23 @@ class _PlayerViewState extends State<PlayerView> {
                       ],
                     ),
                   ),
+
+                  // 选集按钮 (电视剧专享，快捷键 E)
+                  if (isTVSeries) ...[
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white24),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _toggleEpisodeDrawer,
+                      icon: const Icon(Icons.video_library_outlined, size: 14, color: AppColors.primary),
+                      label: const Text("选集 (E)", style: TextStyle(fontSize: 11)),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
 
                   // 原盘菜单按钮 (BD-J / HDMV)
                   if (isBluRay) ...[
@@ -207,7 +278,7 @@ class _PlayerViewState extends State<PlayerView> {
                       ),
                       onPressed: () => _menuController.showTopMenu(),
                       icon: const Icon(Icons.menu_book_outlined, size: 14, color: AppColors.primary),
-                      label: const Text("原盘菜单", style: TextStyle(fontSize: 11)),
+                      label: const Text("原盘菜单 (B)", style: TextStyle(fontSize: 11)),
                     ),
                     const SizedBox(width: 12),
                   ],
@@ -276,7 +347,7 @@ class _PlayerViewState extends State<PlayerView> {
                         ),
                         onPressed: _openTrackSelector,
                         icon: const Icon(Icons.tune_rounded, size: 16, color: AppColors.primary),
-                        label: const Text("音轨 / 字幕 / 倍速", style: TextStyle(fontSize: 12)),
+                        label: const Text("音轨 / 字幕 / 倍速 (M)", style: TextStyle(fontSize: 12)),
                       ),
                       const SizedBox(width: 12),
 
@@ -306,6 +377,62 @@ class _PlayerViewState extends State<PlayerView> {
           ),
         );
       },
+    );
+  }
+
+  /// 剧集无缝切集半透明侧边栏
+  Widget _buildEpisodeDrawer() {
+    return Positioned(
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 420,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.surface.withOpacity(0.92),
+          border: Border(left: BorderSide(color: Colors.white.withOpacity(0.12))),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.8),
+              blurRadius: 24,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "快速选集",
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: AppColors.textMuted),
+                  onPressed: () => setState(() => _showEpisodeDrawer = false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: EpisodeSelectorWidget(
+                item: widget.item,
+                currentSelectedEpisode: _controller.currentEpisode,
+                onEpisodeSelected: (ep) {
+                  setState(() => _showEpisodeDrawer = false);
+                  _controller.switchEpisode(ep);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

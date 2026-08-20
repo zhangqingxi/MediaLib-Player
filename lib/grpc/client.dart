@@ -181,13 +181,27 @@ class MediaLibClient {
   }
 
   /// 播放动态换链：起播瞬间换取 115 真实 302 直链或流媒体地址（抗风控核心）
-  Future<StreamUrlResponse> getStreamURL({required int itemId, String fileKey = ""}) async {
-    // 1. 如果已有签名 fileKey，直接走直链
+  Future<StreamUrlResponse> getStreamURL({required int itemId, int episodeId = 0, String fileKey = ""}) async {
+    // 1. 如果已有签名 fileKey 或文件路径，优先请求
     if (fileKey.isNotEmpty) {
-      return StreamUrlResponse(playUrl: "$baseUrl/api/stream/$fileKey");
+      return StreamUrlResponse(playUrl: "$baseUrl/api/stream/${Uri.encodeComponent(fileKey)}");
     }
 
-    // 2. 查询条目详情中的可播放 STRM
+    // 2. 如果是电视剧分集
+    if (episodeId > 0) {
+      final item = await getItem(itemId);
+      if (item != null && item.episodes.isNotEmpty) {
+        final ep = item.episodes.firstWhere((e) => e.id == episodeId, orElse: () => item.episodes.first);
+        if (ep.strmPath.isNotEmpty) {
+          return StreamUrlResponse(
+            playUrl: "$baseUrl/api/stream/${Uri.encodeComponent(ep.strmPath)}",
+            isDirect: true,
+          );
+        }
+      }
+    }
+
+    // 3. 查询条目详情中的可播放 STRM
     final item = await getItem(itemId);
     if (item != null && item.libraryPath.isNotEmpty) {
       return StreamUrlResponse(

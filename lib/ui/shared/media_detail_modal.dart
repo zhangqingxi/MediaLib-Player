@@ -5,6 +5,7 @@ import '../../models/media_item.dart';
 import '../../models/playback.dart';
 import '../../grpc/client.dart';
 import 'bdinfo_capsule_widget.dart';
+import 'episode_selector_widget.dart';
 import 'player_view.dart';
 
 /// 影片详情与版本/分集选择弹窗 (Media Detail Modal)
@@ -21,6 +22,7 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
   final MediaLibClient _client = MediaLibClient();
   PlaybackProgressModel _progress = PlaybackProgressModel();
   MediaItemModel? _detailedItem;
+  EpisodeModel? _lastWatchedEpisode;
   bool _isLoading = true;
 
   @override
@@ -33,21 +35,36 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
     final progress = await _client.getProgress(mediaId: widget.item.id);
     final detailed = await _client.getItem(widget.item.id);
 
+    EpisodeModel? targetEpisode;
+    if (detailed != null && detailed.episodes.isNotEmpty) {
+      if (progress.hasRecord && progress.episodeId > 0) {
+        targetEpisode = detailed.episodes.firstWhere(
+          (e) => e.id == progress.episodeId,
+          orElse: () => detailed.episodes.first,
+        );
+      } else {
+        targetEpisode = detailed.episodes.first;
+      }
+    }
+
     if (mounted) {
       setState(() {
         _progress = progress;
         _detailedItem = detailed ?? widget.item;
+        _lastWatchedEpisode = targetEpisode;
         _isLoading = false;
       });
     }
   }
 
-  void _startPlayback({bool resume = true}) {
+  void _startPlayback({bool resume = true, EpisodeModel? episode}) {
     Navigator.of(context).pop();
+    final targetEpisode = episode ?? _lastWatchedEpisode;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => PlayerView(
           item: _detailedItem ?? widget.item,
+          episode: targetEpisode,
           startPositionSec: resume ? _progress.positionSec : 0,
         ),
       ),
@@ -68,13 +85,14 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
   Widget build(BuildContext context) {
     final item = _detailedItem ?? widget.item;
     final hasProgress = _progress.hasRecord && _progress.positionSec > 10 && !_progress.completed;
+    final isTVSeries = item.isTV;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
       child: Container(
-        width: 900,
-        height: 580,
+        width: 960,
+        height: isTVSeries ? 660 : 580,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -108,8 +126,8 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      AppColors.surface.withOpacity(0.82),
-                      AppColors.surface.withOpacity(0.95),
+                      AppColors.surface.withOpacity(0.85),
+                      AppColors.surface.withOpacity(0.96),
                       AppColors.surface,
                     ],
                   ),
@@ -120,7 +138,7 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
             // 2. 详情内容区
             Positioned.fill(
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.all(28),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -148,9 +166,9 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 32),
+                    const SizedBox(width: 28),
 
-                    // 右侧元数据与动作
+                    // 右侧元数据、剧集选集与操作
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,7 +183,7 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                                   item.title,
                                   style: const TextStyle(
                                     color: AppColors.textPrimary,
-                                    fontSize: 26,
+                                    fontSize: 24,
                                     fontWeight: FontWeight.w900,
                                   ),
                                   maxLines: 1,
@@ -173,12 +191,12 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                                 ),
                               ),
                               if (item.year > 0) ...[
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Text(
                                   "(${item.year})",
                                   style: const TextStyle(
                                     color: AppColors.textMuted,
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -186,32 +204,32 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                             ],
                           ),
                           if (item.originalTitle.isNotEmpty && item.originalTitle != item.title) ...[
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             Text(
                               item.originalTitle,
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
                           ],
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 10),
 
                           // 评分、时长与类型标签
                           Row(
                             children: [
                               if (item.rating > 0) ...[
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppColors.primary,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.star, color: Colors.black, size: 14),
-                                      const SizedBox(width: 4),
+                                      const Icon(Icons.star, color: Colors.black, size: 13),
+                                      const SizedBox(width: 3),
                                       Text(
                                         item.rating.toStringAsFixed(1),
                                         style: const TextStyle(
@@ -223,23 +241,23 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                               ],
                               if (item.runtime > 0) ...[
                                 Text(
                                   "${item.runtime} 分钟",
-                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                               ],
                               if (item.genres.isNotEmpty)
                                 Text(
                                   item.genres.join(" / "),
-                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
 
                           // 蓝光技术规格胶囊 (BDInfoCapsule)
                           if (item.bdinfo != null)
@@ -252,22 +270,39 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                                 if (item.edition.isNotEmpty) _buildSpecBadge(item.edition),
                               ],
                             ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
 
                           // 剧情简介
-                          Expanded(
+                          SizedBox(
+                            height: isTVSeries ? 60 : 120,
                             child: SingleChildScrollView(
                               child: Text(
                                 item.overview.isNotEmpty ? item.overview : "暂无剧情介绍",
                                 style: const TextStyle(
                                   color: AppColors.textSecondary,
-                                  fontSize: 14,
-                                  height: 1.5,
+                                  fontSize: 13,
+                                  height: 1.4,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+
+                          // 如果是连续剧集，展示季/集选集组件
+                          if (isTVSeries) ...[
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: EpisodeSelectorWidget(
+                                item: item,
+                                currentSelectedEpisode: _lastWatchedEpisode,
+                                onEpisodeSelected: (ep) {
+                                  setState(() => _lastWatchedEpisode = ep);
+                                  _startPlayback(resume: true, episode: ep);
+                                },
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 16),
 
                           // 底部播放动作按钮栏
                           Row(
@@ -277,41 +312,45 @@ class _MediaDetailModalState extends State<MediaDetailModal> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primary,
                                     foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () => _startPlayback(resume: true),
-                                  icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
                                   label: Text(
-                                    "继续观看 (${_formatSeconds(_progress.positionSec)})",
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    isTVSeries && _lastWatchedEpisode != null
+                                        ? "继续观看 ${_lastWatchedEpisode!.episodeLabel} (${_formatSeconds(_progress.positionSec)})"
+                                        : "继续观看 (${_formatSeconds(_progress.positionSec)})",
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
                                 ),
-                                const SizedBox(width: 14),
+                                const SizedBox(width: 12),
                                 OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.textPrimary,
                                     side: BorderSide(color: Colors.white.withOpacity(0.2)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () => _startPlayback(resume: false),
-                                  icon: const Icon(Icons.replay_rounded, size: 18),
-                                  label: const Text("从头播放"),
+                                  icon: const Icon(Icons.replay_rounded, size: 16),
+                                  label: Text(isTVSeries ? "从第 1 集播放" : "从头播放"),
                                 ),
                               ] else ...[
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.primary,
                                     foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 15),
+                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   onPressed: () => _startPlayback(resume: false),
-                                  icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                                  label: const Text(
-                                    "立即播放",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                                  label: Text(
+                                    isTVSeries && _lastWatchedEpisode != null
+                                        ? "播放 ${_lastWatchedEpisode!.episodeLabel}"
+                                        : "立即播放",
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
                                 ),
                               ],

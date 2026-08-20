@@ -102,6 +102,57 @@ class SubtitleTrackInfo {
   }
 }
 
+/// 剧集分集模型 (Episode)
+class EpisodeModel {
+  final int id;
+  final int mediaId;
+  final int seasonNumber;
+  final int episodeNumber;
+  final String title;
+  final String overview;
+  final String airDate;
+  final String stillUrl;
+  final int durationSec;
+  final String strmPath;
+  final bool matched;
+
+  EpisodeModel({
+    required this.id,
+    required this.mediaId,
+    this.seasonNumber = 1,
+    this.episodeNumber = 1,
+    this.title = '',
+    this.overview = '',
+    this.airDate = '',
+    this.stillUrl = '',
+    this.durationSec = 0,
+    this.strmPath = '',
+    this.matched = true,
+  });
+
+  String get episodeLabel {
+    final s = seasonNumber.toString().padLeft(2, '0');
+    final e = episodeNumber.toString().padLeft(2, '0');
+    return "S${s}E$e";
+  }
+
+  factory EpisodeModel.fromMap(Map<String, dynamic> map) {
+    return EpisodeModel(
+      id: map['id'] ?? 0,
+      mediaId: map['media_id'] ?? 0,
+      seasonNumber: map['season_number'] ?? 1,
+      episodeNumber: map['episode_number'] ?? 1,
+      title: map['title'] ?? '',
+      overview: map['overview'] ?? '',
+      airDate: map['air_date'] ?? '',
+      stillUrl: map['still_url'] ?? '',
+      durationSec: map['duration_sec'] ?? 0,
+      strmPath: map['strm_path'] ?? '',
+      matched: map['matched'] ?? true,
+    );
+  }
+}
+
 /// 蓝光原盘母带规格胶囊 (BDInfoCapsule)
 class BDInfoCapsule {
   final String sourceType; // UHD_BD / BD_ISO / BDMV / REMUX / WEB_DL
@@ -139,6 +190,7 @@ class BDInfoCapsule {
 /// 媒体库条目（海报墙与播放器核心实体）
 class MediaItemModel {
   final int id;
+  final String type; // movie / tv
   final String title;
   final String originalTitle;
   final int year;
@@ -155,9 +207,12 @@ class MediaItemModel {
   final String resolution; // 4K / FHD / HD
   final String edition;    // Remux / MiniBD / Standard
   final BDInfoCapsule? bdinfo;
+  final List<EpisodeModel> episodes;
+  final int episodesCount;
 
   MediaItemModel({
     required this.id,
+    this.type = 'movie',
     required this.title,
     this.originalTitle = '',
     this.year = 0,
@@ -174,11 +229,27 @@ class MediaItemModel {
     this.resolution = '1080p',
     this.edition = 'Standard',
     this.bdinfo,
+    this.episodes = const [],
+    this.episodesCount = 0,
   });
 
+  bool get isTV => type.toLowerCase() == 'tv' || episodes.isNotEmpty;
   bool get is4K => resolution.toUpperCase().contains('4K') || (bdinfo?.video?.width ?? 0) >= 3840;
   bool get hasDolbyVision => bdinfo?.video?.isDolbyVision ?? false;
   bool get hasAtmos => bdinfo?.audioTracks.any((a) => a.isAtmos || a.codec.contains('Atmos')) ?? false;
+
+  /// 按季分组分集列表
+  Map<int, List<EpisodeModel>> get seasonGroups {
+    final Map<int, List<EpisodeModel>> map = {};
+    for (var ep in episodes) {
+      map.putIfAbsent(ep.seasonNumber, () => []).add(ep);
+    }
+    // 排序
+    for (var key in map.keys) {
+      map[key]!.sort((a, b) => a.episodeNumber.compareTo(b.episodeNumber));
+    }
+    return map;
+  }
 
   factory MediaItemModel.fromMap(Map<String, dynamic> map) {
     var rawGenres = map['genres'];
@@ -189,8 +260,12 @@ class MediaItemModel {
       genreList = rawGenres.split(',').map((e) => e.trim()).toList();
     }
 
+    var epList = (map['episodes'] as List<dynamic>?) ?? [];
+    var episodes = epList.map((e) => EpisodeModel.fromMap(e)).toList();
+
     return MediaItemModel(
       id: map['id'] ?? 0,
+      type: map['type'] ?? (episodes.isNotEmpty ? 'tv' : 'movie'),
       title: map['title'] ?? '未命名影片',
       originalTitle: map['original_title'] ?? '',
       year: map['year'] ?? 0,
@@ -207,6 +282,8 @@ class MediaItemModel {
       resolution: map['resolution'] ?? '1080p',
       edition: map['edition'] ?? 'Standard',
       bdinfo: map['bdinfo'] != null ? BDInfoCapsule.fromMap(map['bdinfo']) : null,
+      episodes: episodes,
+      episodesCount: map['episodes_count'] ?? episodes.length,
     );
   }
 }

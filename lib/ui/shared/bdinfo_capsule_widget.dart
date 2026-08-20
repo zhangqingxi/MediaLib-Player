@@ -5,7 +5,7 @@ import '../../models/media_item.dart';
 /// 蓝光母带规格胶囊徽标组件 (BDINFO Capsule Badge)
 class BDInfoCapsuleWidget extends StatelessWidget {
   final MediaItemModel? item;
-  final BDInfoCapsuleModel? bdinfo;
+  final BDInfoCapsule? bdinfo;
   final bool isCompact;
 
   const BDInfoCapsuleWidget({
@@ -24,7 +24,7 @@ class BDInfoCapsuleWidget extends StatelessWidget {
     final discType = item?.discType ?? bdinfo?.sourceType ?? "";
     final hasDolbyVision = item?.hasDolbyVision ?? (bdinfo?.video?.isDolbyVision ?? false);
     final isHdr = bdinfo?.video?.isHDR ?? false;
-    final hasAtmos = item?.hasAtmos ?? (bdinfo?.hasAtmos ?? false);
+    final hasAtmos = item?.hasAtmos ?? (bdinfo?.audioTracks.any((a) => a.isAtmos || a.codec.contains('Atmos')) ?? false);
 
     // 1. 分辨率标
     if (is4k) {

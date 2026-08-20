@@ -12,6 +12,7 @@ class MediaLibPlayerController extends ChangeNotifier {
   late final VideoController videoController;
 
   MediaItemModel? _currentItem;
+  EpisodeModel? _currentEpisode;
   Timer? _progressReportTimer;
   String _sessionId = "";
   bool _isDisposed = false;
@@ -30,6 +31,7 @@ class MediaLibPlayerController extends ChangeNotifier {
   String activeSubtitleTrack = "";
 
   MediaItemModel? get currentItem => _currentItem;
+  EpisodeModel? get currentEpisode => _currentEpisode;
 
   MediaLibPlayerController() {
     // 1. 初始化底层 media_kit / libmpv 发烧级核心
@@ -74,9 +76,19 @@ class MediaLibPlayerController extends ChangeNotifier {
     });
   }
 
-  /// 播放指定媒体条目（执行起播瞬间换链、断点恢复与杜比 GPU 参数注入）
-  Future<void> playItem(MediaItemModel item, {int startPositionSec = 0}) async {
+  /// 播放指定媒体条目或剧集分集（执行起播瞬间换链、断点恢复与杜比 GPU 参数注入）
+  Future<void> playItem(
+    MediaItemModel item, {
+    EpisodeModel? episode,
+    int startPositionSec = 0,
+  }) async {
+    // 上报旧分集结束打点
+    if (_currentItem != null) {
+      await _reportCurrentProgress(isFinished: false);
+    }
+
     _currentItem = item;
+    _currentEpisode = episode;
     _sessionId = "sess_${DateTime.now().millisecondsSinceEpoch}";
     _lastReportedSec = startPositionSec;
     isDolbyVisionActive = item.hasDolbyVision;
@@ -85,7 +97,11 @@ class MediaLibPlayerController extends ChangeNotifier {
     final client = MediaLibClient();
 
     // 1. 毫秒级向服务端请求最新的真实播放直链（115 OpenAPI 抗风控换链）
-    final streamResp = await client.getStreamURL(itemId: item.id);
+    final streamResp = await client.getStreamURL(
+      itemId: item.id,
+      episodeId: episode?.id ?? 0,
+      fileKey: episode?.strmPath.isNotEmpty == true ? episode!.strmPath : item.libraryPath,
+    );
     final finalPlayUrl = streamResp.playUrl;
 
     // 2. 起播断点计算
@@ -93,7 +109,10 @@ class MediaLibPlayerController extends ChangeNotifier {
     if (startPositionSec > 0) {
       startPosition = Duration(seconds: startPositionSec);
     } else {
-      final progressRecord = await client.getProgress(mediaId: item.id);
+      final progressRecord = await client.getProgress(
+        mediaId: item.id,
+        episodeId: episode?.id ?? 0,
+      );
       if (progressRecord.hasRecord && !progressRecord.completed && progressRecord.positionSec > 10) {
         startPosition = Duration(seconds: progressRecord.positionSec);
       }
@@ -111,6 +130,12 @@ class MediaLibPlayerController extends ChangeNotifier {
 
     // 4. 启动单向时钟打点定时器（每 5 秒上报一次进度，防回滚）
     _startProgressReportTimer();
+  }
+
+  /// 剧集无缝切集
+  Future<void> switchEpisode(EpisodeModel episode) async {
+    if (_currentItem == null) return;
+    await playItem(_currentItem!, episode: episode);
   }
 
   void _startProgressReportTimer() {
@@ -134,6 +159,7 @@ class MediaLibPlayerController extends ChangeNotifier {
       _lastReportedSec = posSec;
       await MediaLibClient().reportProgress(
         mediaId: _currentItem!.id,
+        episodeId: _currentEpisode?.id ?? 0,
         positionSec: posSec,
         durationSec: durSec,
         clientSessionId: _sessionId,
