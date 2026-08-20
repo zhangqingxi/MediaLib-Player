@@ -1,0 +1,58 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="cn.medialib.player">
+
+    <!-- 网络与文件权限 -->
+    <uses-permission android:name="android.intent.action.VIEW" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- Android TV 与 智能电视盒子专属特性支持 -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.hdmi.cec"
+        android:required="false" />
+
+    <application
+        android:label="MediaLib Player"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
+        android:usesCleartextTraffic="true">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            
+            <!-- 手机端 Launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            
+            <!-- Android TV Leanback Launcher 专属主屏入口 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+</manifest>

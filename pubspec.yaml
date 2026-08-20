@@ -1,0 +1,53 @@
+name: medialib_player
+description: "MediaLib 跨平台发烧级影音播放器 (Android TV / 手机 / Windows PC / macOS)，支持 BD-J/HDMV 原盘菜单级交互、全规格杜比视界解析与电视硬件直通亮标、gRPC 毫秒级抗风控换链与单向时钟打点。"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- gRPC & Protobuf ---
+  grpc: ^3.2.4
+  protobuf: ^3.1.0
+
+  # --- 发烧级跨平台播放核心 (libmpv / libplacebo / libbluray / libdovi) ---
+  media_kit: ^1.1.10
+  media_kit_video: ^1.2.4
+  media_kit_libs_windows_video: ^1.0.9
+  media_kit_libs_android_video: ^1.5.0
+  media_kit_libs_macos_video: ^1.0.8
+
+  # --- 状态管理与架构 ---
+  provider: ^6.1.2
+  flutter_riverpod: ^2.5.1
+  shared_preferences: ^2.2.3
+
+  # --- UI、图标与网络图片缓存 ---
+  cached_network_image: ^3.3.1
+  flutter_animate: ^4.5.0
+  lucide_icons: ^0.257.0
+  google_fonts: ^6.2.1
+
+  # --- 跨平台桌面与 TV 适配 ---
+  window_manager: ^0.3.8
+  screen_retriever: ^0.1.9
+  wakelock_plus: ^1.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  protoc_plugin: ^21.1.2
+  build_runner: ^2.4.9
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
