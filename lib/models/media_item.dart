@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 /// 视频轨规格
 class VideoTrackInfo {
   final String codec;

@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/constants.dart';
-import 'ui/shared/poster_wall_view.dart';
-import 'grpc/client.dart';
+import 'ui/auth/auth_guard_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,13 +29,6 @@ void main() async {
     });
   }
 
-  // 3. 配置默认后端 gRPC / REST 服务端地址
-  MediaLibClient().configure(
-    host: "127.0.0.1",
-    port: 8080,
-    deviceName: Platform.isAndroid ? "AndroidTV-Box" : "Windows-PC",
-  );
-
   runApp(const MediaLibPlayerApp());
 }
 
@@ -60,7 +52,7 @@ class MediaLibPlayerApp extends StatelessWidget {
         ),
         fontFamily: Platform.isWindows ? 'Microsoft YaHei' : null,
       ),
-      home: const PosterWallView(),
+      home: const AuthGuardView(),
     );
   }
 }
