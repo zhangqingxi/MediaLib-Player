@@ -4,12 +4,14 @@ import '../../models/media_item.dart';
 
 /// 蓝光母带规格胶囊徽标组件 (BDINFO Capsule Badge)
 class BDInfoCapsuleWidget extends StatelessWidget {
-  final MediaItemModel item;
+  final MediaItemModel? item;
+  final BDInfoCapsuleModel? bdinfo;
   final bool isCompact;
 
   const BDInfoCapsuleWidget({
     Key? key,
-    required this.item,
+    this.item,
+    this.bdinfo,
     this.isCompact = false,
   }) : super(key: key);
 
@@ -17,25 +19,32 @@ class BDInfoCapsuleWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Widget> badges = [];
 
+    final is4k = item?.is4K ?? (bdinfo?.video?.resolutionLabel.contains("4K") ?? false);
+    final resolution = item?.resolution ?? bdinfo?.video?.resolutionLabel ?? "";
+    final discType = item?.discType ?? bdinfo?.sourceType ?? "";
+    final hasDolbyVision = item?.hasDolbyVision ?? (bdinfo?.video?.isDolbyVision ?? false);
+    final isHdr = bdinfo?.video?.isHDR ?? false;
+    final hasAtmos = item?.hasAtmos ?? (bdinfo?.hasAtmos ?? false);
+
     // 1. 分辨率标
-    if (item.is4K) {
+    if (is4k) {
       badges.add(_buildBadge("4K UHD", Colors.amber.shade400, Colors.black));
-    } else if (item.resolution.contains("1080") || item.discType == "BD") {
+    } else if (resolution.contains("1080") || discType == "BD") {
       badges.add(_buildBadge("1080p BD", Colors.blue.shade300, Colors.black));
     }
 
     // 2. 杜比视界金标 / HDR10 标
-    if (item.hasDolbyVision) {
+    if (hasDolbyVision) {
       badges.add(_buildBadge("VISION", AppColors.dolbyVision, Colors.black, isBold: true));
-    } else if (item.bdinfo?.video?.isHDR ?? false) {
+    } else if (isHdr) {
       badges.add(_buildBadge("HDR10", Colors.orange.shade300, Colors.black));
     }
 
     // 3. 杜比全景声 / 次世代音轨标
-    if (item.hasAtmos) {
+    if (hasAtmos) {
       badges.add(_buildBadge("ATMOS", AppColors.atmos, Colors.black));
-    } else if (item.bdinfo?.audioTracks.isNotEmpty ?? false) {
-      final codec = item.bdinfo!.audioTracks.first.codec;
+    } else if (bdinfo != null && bdinfo!.audioTracks.isNotEmpty) {
+      final codec = bdinfo!.audioTracks.first.codec;
       if (codec.contains("DTS")) {
         badges.add(_buildBadge("DTS-HD", Colors.red.shade300, Colors.black));
       } else if (codec.contains("TrueHD")) {
@@ -44,7 +53,7 @@ class BDInfoCapsuleWidget extends StatelessWidget {
     }
 
     // 4. 原盘形态标
-    if (item.discType == "3D") {
+    if (discType == "3D") {
       badges.add(_buildBadge("3D立体", Colors.teal.shade300, Colors.black));
     }
 

@@ -6,7 +6,7 @@ import '../models/media_item.dart';
 import '../grpc/client.dart';
 import '../core/constants.dart';
 
-/// 跨平台发烧级播放器控制器
+/// 跨平台发烧级播放器控制器 (集成 libmpv + libplacebo 杜比色调映射与单向时钟打点)
 class MediaLibPlayerController extends ChangeNotifier {
   late final Player player;
   late final VideoController videoController;
@@ -37,7 +37,7 @@ class MediaLibPlayerController extends ChangeNotifier {
       configuration: const PlayerConfiguration(
         title: "MediaLib Player",
         ready: true,
-        bufferSize: 32 * 1024 * 1024, // 32MB 极速缓冲
+        bufferSize: 32 * 1024 * 1024, // 32MB 极速预读缓冲
       ),
     );
 
@@ -45,7 +45,7 @@ class MediaLibPlayerController extends ChangeNotifier {
       player,
       configuration: const VideoControllerConfiguration(
         enableHardwareAcceleration: true,
-        hwdec: 'd3d11va', // Windows 默认硬解，Android 走 mediacodec
+        hwdec: 'd3d11va', // Windows 走 Direct3D 11VA，Android 走 mediacodec
       ),
     );
 
@@ -75,10 +75,10 @@ class MediaLibPlayerController extends ChangeNotifier {
   }
 
   /// 播放指定媒体条目（执行起播瞬间换链、断点恢复与杜比 GPU 参数注入）
-  Future<void> playItem(MediaItemModel item) async {
+  Future<void> playItem(MediaItemModel item, {int startPositionSec = 0}) async {
     _currentItem = item;
     _sessionId = "sess_${DateTime.now().millisecondsSinceEpoch}";
-    _lastReportedSec = 0;
+    _lastReportedSec = startPositionSec;
     isDolbyVisionActive = item.hasDolbyVision;
     notifyListeners();
 
@@ -88,11 +88,15 @@ class MediaLibPlayerController extends ChangeNotifier {
     final streamResp = await client.getStreamURL(itemId: item.id);
     final finalPlayUrl = streamResp.playUrl;
 
-    // 2. 检查服务端历史播放进度（断点续播）
-    final progressRecord = await client.getProgress(mediaId: item.id);
+    // 2. 起播断点计算
     Duration startPosition = Duration.zero;
-    if (progressRecord.hasRecord && !progressRecord.completed && progressRecord.positionSec > 10) {
-      startPosition = Duration(seconds: progressRecord.positionSec);
+    if (startPositionSec > 0) {
+      startPosition = Duration(seconds: startPositionSec);
+    } else {
+      final progressRecord = await client.getProgress(mediaId: item.id);
+      if (progressRecord.hasRecord && !progressRecord.completed && progressRecord.positionSec > 10) {
+        startPosition = Duration(seconds: progressRecord.positionSec);
+      }
     }
 
     // 3. 打开媒体流

@@ -3,7 +3,8 @@ import '../../core/constants.dart';
 import '../../models/media_item.dart';
 import '../../grpc/client.dart';
 import '../tv/tv_focus_card.dart';
-import 'player_view.dart';
+import 'media_detail_modal.dart';
+import 'settings_modal.dart';
 
 /// 跨端自适应海报墙主界面 (Poster Wall Home)
 class PosterWallView extends StatefulWidget {
@@ -23,6 +24,11 @@ class _PosterWallViewState extends State<PosterWallView> {
   @override
   void initState() {
     super.initState();
+    _initClientAndLoad();
+  }
+
+  Future<void> _initClientAndLoad() async {
+    await _client.init();
     _loadMediaItems();
   }
 
@@ -41,10 +47,20 @@ class _PosterWallViewState extends State<PosterWallView> {
     }
   }
 
-  void _openPlayer(MediaItemModel item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => PlayerView(item: item),
+  void _openDetailModal(MediaItemModel item) {
+    showDialog(
+      context: context,
+      builder: (context) => MediaDetailModal(item: item),
+    );
+  }
+
+  void _openSettingsModal() {
+    showDialog(
+      context: context,
+      builder: (context) => ServerSettingsModal(
+        onSaved: () {
+          _loadMediaItems();
+        },
       ),
     );
   }
@@ -144,6 +160,19 @@ class _PosterWallViewState extends State<PosterWallView> {
                 ),
               ),
             ),
+
+          // 右侧：刷新与服务器连接设置按钮
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary, size: 22),
+            tooltip: "刷新媒体库",
+            onPressed: _loadMediaItems,
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: AppColors.textSecondary, size: 22),
+            tooltip: "服务器与账号设置",
+            onPressed: _openSettingsModal,
+          ),
         ],
       ),
     );
@@ -202,7 +231,7 @@ class _PosterWallViewState extends State<PosterWallView> {
         final item = _items[i];
         return TVFocusCard(
           item: item,
-          onTap: () => _openPlayer(item),
+          onTap: () => _openDetailModal(item),
         );
       },
     );
@@ -220,19 +249,35 @@ class _PosterWallViewState extends State<PosterWallView> {
             style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () {
-              setState(() {
-                _selectedDiscType = "全部";
-                _selectedGenre = "全部";
-              });
-              _loadMediaItems();
-            },
-            child: const Text("重置所有筛选"),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _selectedDiscType = "全部";
+                    _selectedGenre = "全部";
+                  });
+                  _loadMediaItems();
+                },
+                icon: const Icon(Icons.restart_alt, size: 18),
+                label: const Text("重置筛选"),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                ),
+                onPressed: _openSettingsModal,
+                icon: const Icon(Icons.settings, size: 18),
+                label: const Text("配置服务器"),
+              ),
+            ],
           ),
         ],
       ),

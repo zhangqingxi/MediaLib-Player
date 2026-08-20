@@ -5,17 +5,33 @@ package medialib.v1;
 option go_package = "medialib/api/proto/v1;medialibv1";
 
 // ==========================================
-// 1. 媒体服务 (MediaService) - 供播放器客户端渲染海报墙、查胶囊、换播放直链
+// 1. 设备与用户鉴权服务 (AuthService)
+// ==========================================
+service AuthService {
+  // 播放器账号登录：返回 access_token 与绑定的目录可见范围 (Scope)
+  rpc LoginPlayer(LoginPlayerRequest) returns (LoginPlayerResponse);
+
+  // 播放器设备快速注册/扫码绑定
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+
+  // 校验与刷新 Token
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+// ==========================================
+// 2. 媒体服务 (MediaService) - 供播放器客户端渲染海报墙、查胶囊、换播放直链
 // ==========================================
 service MediaService {
-  // 获取媒体库条目列表（海报墙，支持合集过滤与搜索）
+  // 获取媒体库条目列表（海报墙，支持合集过滤与搜索，自动按 Scope 过滤）
   rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+  rpc GetPosterWall(ListItemsRequest) returns (ListItemsResponse); // 别名兼容
 
   // 获取单个影片详情（含完整 BDINFO 胶囊与多音轨/字幕信息）
   rpc GetItem(GetItemRequest) returns (MediaItem);
 
   // 播放换链：传入条目 ID 或 file_key，服务端在播放瞬间换取 115 直链或流媒体地址（抗流控核心）
   rpc GetStreamURL(GetStreamURLRequest) returns (GetStreamURLResponse);
+  rpc GetPlaybackUrl(GetStreamURLRequest) returns (GetStreamURLResponse); // 别名兼容
 
   // 获取系列合集列表（如 X战警系列、漫威宇宙系列）
   rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
@@ -25,11 +41,12 @@ service MediaService {
 }
 
 // ==========================================
-// 2. 播放器同步服务 (PlaybackService) - 供独立播放器/MPV内核跨设备续播与冲突仲裁
+// 3. 播放器同步服务 (PlaybackService) - 供独立播放器/MPV内核跨设备续播与冲突仲裁
 // ==========================================
 service PlaybackService {
   // 上报播放进度打点（支持多设备时间戳仲裁与单向递增保护）
   rpc ReportProgress(ReportProgressRequest) returns (ReportProgressResponse);
+  rpc ReportPlaybackProgress(ReportProgressRequest) returns (ReportProgressResponse); // 别名兼容
 
   // 查询指定影片/分集的续播断点
   rpc GetProgress(GetProgressRequest) returns (GetProgressResponse);
@@ -42,24 +59,17 @@ service PlaybackService {
 }
 
 // ==========================================
-// 3. 任务引擎服务 (TaskService) - 支持 gRPC 流式进度监听
+// 4. 任务引擎服务 (TaskService) - 支持 gRPC 流式进度监听
 // ==========================================
 service TaskService {
-  // 提交任务（strm / scrape / bdinfo / copy 等）
   rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
-
-  // 查询任务列表
   rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
-
-  // 实时监听任务进度（Server-Streaming 流式推送，客户端无需轮询）
   rpc WatchTask(WatchTaskRequest) returns (stream TaskProgressEvent);
-
-  // 取消任务
   rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
 }
 
 // ==========================================
-// 4. 挂载管理服务 (MountService)
+// 5. 挂载管理服务 (MountService)
 // ==========================================
 service MountService {
   rpc ListMounts(ListMountsRequest) returns (ListMountsResponse);
@@ -71,73 +81,114 @@ service MountService {
 // 实体与消息定义
 // ==========================================
 
-// 媒体条目（海报墙与播放器核心数据源）
+message LoginPlayerRequest {
+  string username = 1;
+  string password = 2;
+  string device_name = 3;       // 播放器设备名（如 "客厅索尼电视", "PC-Office"）
+  string device_model = 4;      // 硬件型号（如 "Sony-A95L", "Windows-RTX4080"）
+  string platform = 5;          // "android_tv" / "android_phone" / "windows" / "macos"
+}
+
+message LoginPlayerResponse {
+  bool success = 1;
+  string access_token = 2;      // 访问 Token (后续放入 Metadata: authorization: Bearer <token>)
+  int64 expire_at = 3;          // 过期时间戳 (Unix)
+  PlayerUser user = 4;          // 播放器用户信息与 Scope
+  string error_message = 5;
+}
+
+message RegisterDeviceRequest {
+  string device_code = 1;       // 播放器生成的 6 位数字绑定码
+  string device_name = 2;
+  string platform = 3;
+}
+
+message RegisterDeviceResponse {
+  bool bound = 1;
+  string access_token = 2;
+  PlayerUser user = 3;
+}
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  PlayerUser user = 2;
+}
+
+message PlayerUser {
+  int64 id = 1;
+  string username = 2;
+  string display_name = 3;
+  string role = 4;              // "admin" / "player_user" / "kids"
+  repeated string allowed_scopes = 5;    // 可见目录标签列表（如 ["动画", "精选4K"]）
+  repeated int64 allowed_mount_ids = 6;  // 可见存储挂载 ID 列表（为空则全量可见）
+}
+
 message MediaItem {
   int64 id = 1;
-  string title = 2;              // 中文片名（如 "X战警"）
-  string original_title = 3;     // 原始片名（如 "X-Men"）
-  int32 year = 4;                // 上映年份（如 2000）
-  int64 tmdb_id = 5;             // TMDB 唯一编号
-  string poster_url = 6;         // 高清海报 URL
-  string backdrop_url = 7;       // 背景大图 URL
-  string overview = 8;           // 剧情简介
-  double rating = 9;             // 评分 (0-10)
-  int32 runtime = 10;            // 时长（分钟）
-  string collection = 11;        // 所属合集名（如 "X战警（系列）"）
-  repeated string genres = 12;   // 影片类型列表（如 ["动作", "科幻", "冒险"]）
-  string library_path = 13;      // 媒体库 .strm 文件路径
-  string source_path = 14;       // 底层源文件路径（仅管理员可见）
-  bool doubt = 15;               // 是否存疑（待人工复核）
-  bool matched = 16;             // 是否匹配到 TMDB
-  string disc_type = 17;         // UHD / BD / 3D / DVD / 2D
-  string resolution = 18;        // 4K / FHD / HD / SD
-  string edition = 19;           // Remux / MiniBD / Standard
-
-  // 蓝光技术规格胶囊（由 bdinfo 任务分析注入，播放器角标与详情页直接渲染）
+  string title = 2;
+  string original_title = 3;
+  int32 year = 4;
+  int64 tmdb_id = 5;
+  string poster_url = 6;
+  string backdrop_url = 7;
+  string overview = 8;
+  double rating = 9;
+  int32 runtime = 10;
+  string collection = 11;
+  repeated string genres = 12;
+  string library_path = 13;
+  string source_path = 14;
+  bool doubt = 15;
+  bool matched = 16;
+  string disc_type = 17;
+  string resolution = 18;
+  string edition = 19;
   BDInfoCapsule bdinfo = 20;
 }
 
-// 蓝光技术规格胶囊
 message BDInfoCapsule {
-  string source_type = 1;        // 源类型：UHD_BD / BD_ISO / BDMV / REMUX / WEB_DL
-  string disc_title = 2;         // 原盘标题
-  string disc_label = 3;         // 卷标（UDF Label，如 X_MEN_1999_UHD）
-  VideoTrack video = 4;          // 视频主轨
-  repeated AudioTrack audio = 5; // 音频轨列表（全音轨直出）
-  repeated SubtitleTrack subtitles = 6; // 字幕轨列表
+  string source_type = 1;
+  string disc_title = 2;
+  string disc_label = 3;
+  VideoTrack video = 4;
+  repeated AudioTrack audio = 5;
+  repeated SubtitleTrack subtitles = 6;
 }
 
 message VideoTrack {
-  string codec = 1;              // 编码：HEVC / H.264 / VC-1
-  int32 width = 2;               // 分辨率宽度（如 3840）
-  int32 height = 3;              // 分辨率高度（如 2160）
-  string resolution_label = 4;   // 分辨率标签：4K UHD / 1080p / 720p
-  string hdr_type = 5;           // HDR 类型：Dolby Vision / HDR10+ / HDR10 / SDR
-  int32 bit_depth = 6;           // 色深：10 / 8 / 12
-  string bit_rate = 7;           // 码率（bps）
-  string duration = 8;           // 精确时长（秒）
+  string codec = 1;
+  int32 width = 2;
+  int32 height = 3;
+  string resolution_label = 4;
+  string hdr_type = 5;
+  int32 bit_depth = 6;
+  string bit_rate = 7;
+  string duration = 8;
 }
 
 message AudioTrack {
-  string codec = 1;              // 编码：TrueHD Atmos / DTS-HD MA / DD+ / AC3 / FLAC
-  int32 channels = 2;            // 声道数：8 (7.1) / 6 (5.1) / 2
-  string channel_layout = 3;     // 声道布局：5.1 / 7.1 / 2.0 / 7.1.4 Atmos
-  string bit_rate = 4;           // 码率（bps）
-  int32 bit_depth = 5;           // 采样位深：24 / 16
-  int32 sampling_rate = 6;       // 采样率：48000 / 96000 / 192000
-  string language = 7;           // 语言：chi / eng / jpn 等
-  string title = 8;              // 轨道标题（如 "英语 DTS-HD MA 5.1"）
-  bool is_atmos = 9;             // 是否为全景声音效
+  string codec = 1;
+  int32 channels = 2;
+  string channel_layout = 3;
+  string bit_rate = 4;
+  int32 bit_depth = 5;
+  int32 sampling_rate = 6;
+  string language = 7;
+  string title = 8;
+  bool is_atmos = 9;
 }
 
 message SubtitleTrack {
-  string language = 1;           // 语言：chi / eng 等
-  string format = 2;             // 格式：PGS / ASS / SRT
-  string title = 3;              // 轨道名称（如 "双语特效字幕"）
-  bool is_forced = 4;            // 是否为强制字幕
+  string language = 1;
+  string format = 2;
+  string title = 3;
+  bool is_forced = 4;
 }
 
-// 播放进度上报与同步消息
 message ReportProgressRequest {
   int64 media_id = 1;
   int64 episode_id = 2;
@@ -148,13 +199,13 @@ message ReportProgressRequest {
   string client_session_id = 7;
   bool is_paused = 8;
   bool is_finished = 9;
-  int64 timestamp_ms = 10;       // 客户端毫秒时间戳（用于多端时钟仲裁）
+  int64 timestamp_ms = 10;
 }
 
 message ReportProgressResponse {
   bool accepted = 1;
-  int32 server_position_sec = 2; // 服务端最终仲裁认定的秒数
-  bool conflict_resolved = 3;    // 是否发生了多端并发冲突重置
+  int32 server_position_sec = 2;
+  bool conflict_resolved = 3;
 }
 
 message GetProgressRequest {
@@ -204,7 +255,7 @@ message PlaybackHeartbeat {
   int64 media_id = 3;
   int64 episode_id = 4;
   int32 current_position_sec = 5;
-  int32 playback_state = 6;      // 0: STOPPED, 1: PLAYING, 2: PAUSED
+  int32 playback_state = 6;
 }
 
 message PlaybackCommand {
@@ -220,31 +271,29 @@ message PlaybackCommand {
   string operator_device = 3;
 }
 
-// 播放换链请求与响应
 message GetStreamURLRequest {
   int64 item_id = 1;
-  string file_key = 2;           // STRM 内的签名安全 Key
+  string file_key = 2;
 }
 
 message GetStreamURLResponse {
-  string play_url = 1;           // 播放地址（网盘 302 直链或流媒体地址）
-  bool is_direct = 2;            // 是否为网盘直链（不消耗自建服务器流量）
-  int64 expire_at = 3;           // 直链过期时间戳（Unix timestamp）
-  map<string, string> headers = 4; // 播放所需的特定请求头（如 User-Agent / Referer / Cookie）
+  string play_url = 1;
+  bool is_direct = 2;
+  int64 expire_at = 3;
+  map<string, string> headers = 4;
 }
 
-// 海报墙列表请求
 message ListItemsRequest {
   int32 page = 1;
   int32 page_size = 2;
-  string collection = 3;         // 按合集筛选（可选）
-  string keyword = 4;            // 搜索片名/原名（可选）
-  bool only_doubt = 5;           // 仅查看存疑待审条目（可选）
-  string kind = 6;               // movie / tv / anime
-  string disc_type = 7;          // UHD / BD / 3D / DVD
-  string resolution = 8;         // 4K / FHD / HD
-  string edition = 9;            // Remux / MiniBD
-  string tag = 10;               // 武侠 / 喜剧 / 恐怖 等
+  string collection = 3;
+  string keyword = 4;
+  bool only_doubt = 5;
+  string kind = 6;
+  string disc_type = 7;
+  string resolution = 8;
+  string edition = 9;
+  string tag = 10;
 }
 
 message ListItemsResponse {
@@ -257,16 +306,15 @@ message GetItemRequest {
   int64 id = 1;
 }
 
-// 合集列表
 message ListCollectionsRequest {}
 
 message CollectionSummary {
   int64 tmdb_id = 1;
-  string name = 2;               // 合集名称
-  string overview = 3;           // 合集总览剧情
-  string poster_url = 4;         // 合集海报
-  string backdrop_url = 5;       // 合集背景图
-  int32 movie_count = 6;         // 系列影片总部数
+  string name = 2;
+  string overview = 3;
+  string poster_url = 4;
+  string backdrop_url = 5;
+  int32 movie_count = 6;
 }
 
 message ListCollectionsResponse {
@@ -283,10 +331,9 @@ message RematchItemResponse {
   MediaItem item = 2;
 }
 
-// 任务服务消息
 message SubmitTaskRequest {
-  string type = 1;               // "strm" / "scrape" / "bdinfo" / "copy"
-  string payload_json = 2;       // 参数 JSON（如 {"path":"/xmen"}）
+  string type = 1;
+  string payload_json = 2;
   int32 priority = 3;
 }
 
@@ -295,7 +342,7 @@ message SubmitTaskResponse {
 }
 
 message ListTasksRequest {
-  string status = 1;             // "pending" / "running" / "completed" / "failed" / ""
+  string status = 1;
 }
 
 message TaskInfo {
@@ -338,7 +385,6 @@ message CancelTaskResponse {
   bool success = 1;
 }
 
-// 挂载点消息
 message ListMountsRequest {}
 
 message MountEntry {

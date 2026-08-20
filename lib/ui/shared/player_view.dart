@@ -9,8 +9,13 @@ import 'bdinfo_capsule_widget.dart';
 /// 发烧级全屏播放器界面 (含 OSD 与杜比状态监视)
 class PlayerView extends StatefulWidget {
   final MediaItemModel item;
+  final int startPositionSec;
 
-  const PlayerView({Key? key, required this.item}) : super(key: key);
+  const PlayerView({
+    Key? key,
+    required this.item,
+    this.startPositionSec = 0,
+  }) : super(key: key);
 
   @override
   State<PlayerView> createState() => _PlayerViewState();
@@ -24,9 +29,9 @@ class _PlayerViewState extends State<PlayerView> {
   void initState() {
     super.initState();
     _controller = MediaLibPlayerController();
-    _controller.playItem(widget.item);
+    _controller.playItem(widget.item, startPositionSec: widget.startPositionSec);
 
-    // 隐藏状态栏全屏
+    // 隐藏状态栏全屏沉浸
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -55,7 +60,7 @@ class _PlayerViewState extends State<PlayerView> {
         autofocus: true,
         onKey: (node, event) {
           if (event is RawKeyDownEvent) {
-            // TV 遥控器键位响应
+            // TV 遥控器键位与快捷键响应
             if (event.logicalKey == LogicalKeyboardKey.select ||
                 event.logicalKey == LogicalKeyboardKey.space ||
                 event.logicalKey == LogicalKeyboardKey.enter) {
@@ -66,6 +71,10 @@ class _PlayerViewState extends State<PlayerView> {
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
               _controller.seekRelative(-10); // 快退 10s
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                event.logicalKey == LogicalKeyboardKey.backspace) {
+              Navigator.of(context).pop();
               return KeyEventResult.handled;
             }
           }
