@@ -8,6 +8,7 @@ import '../../player/bluray_menu_controller.dart';
 import 'bdinfo_capsule_widget.dart';
 import 'track_selector_modal.dart';
 import 'episode_selector_widget.dart';
+import 'player_stats_modal.dart';
 
 /// 发烧级全屏播放器界面 (含 OSD、音轨/字幕面板、剧集快速切集与原盘菜单交互)
 class PlayerView extends StatefulWidget {
@@ -31,6 +32,7 @@ class _PlayerViewState extends State<PlayerView> {
   late final BluRayMenuController _menuController;
   bool _showOsd = true;
   bool _showEpisodeDrawer = false;
+  bool _showHdrSplash = true;
 
   @override
   void initState() {
@@ -45,6 +47,11 @@ class _PlayerViewState extends State<PlayerView> {
 
     // 隐藏状态栏全屏沉浸
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    // 5 秒后淡出 HDR / 杜比视界点亮亮标
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _showHdrSplash = false);
+    });
   }
 
   @override
@@ -60,6 +67,16 @@ class _PlayerViewState extends State<PlayerView> {
       builder: (context) => TrackSelectorModal(
         controller: _controller,
         item: widget.item,
+      ),
+    );
+  }
+
+  void _openStatsModal() {
+    showDialog(
+      context: context,
+      builder: (context) => PlayerStatsModal(
+        item: widget.item,
+        controller: _controller,
       ),
     );
   }
@@ -101,9 +118,21 @@ class _PlayerViewState extends State<PlayerView> {
             } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
               _controller.seekRelative(-10); // 快退 10s
               return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
-              // M 键呼出音轨与字幕调谐面板
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              _controller.setVolume((_controller.volume + 5.0).clamp(0.0, 100.0));
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              _controller.setVolume((_controller.volume - 5.0).clamp(0.0, 100.0));
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyM ||
+                event.logicalKey == LogicalKeyboardKey.keyT) {
+              // M / T 键呼出音轨与字幕调谐面板
               _openTrackSelector();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyI ||
+                event.logicalKey == LogicalKeyboardKey.keyS) {
+              // I / S 键呼出 Stats for Nerds 技术监控
+              _openStatsModal();
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.keyE && isTVSeries) {
               // E 键呼出剧集选集抽屉
@@ -162,6 +191,64 @@ class _PlayerViewState extends State<PlayerView> {
 
               // 4. 右侧侧边剧集选集抽屉 (Episode Drawer)
               if (_showEpisodeDrawer && isTVSeries) _buildEpisodeDrawer(),
+
+              // 5. 起播右上角杜比视界 / HDR 点亮高光提示横幅 (Dolby Vision Pop-in Banner)
+              if (_showHdrSplash && (widget.item.hasDolbyVision || widget.item.isHDR))
+                Positioned(
+                  top: 24,
+                  right: 28,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 600),
+                    opacity: _showHdrSplash ? 1.0 : 0.0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.85),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: widget.item.hasDolbyVision ? AppColors.dolbyVision : Colors.amber,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (widget.item.hasDolbyVision ? AppColors.dolbyVision : Colors.amber).withOpacity(0.4),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            widget.item.hasDolbyVision ? Icons.visibility_rounded : Icons.hdr_on_rounded,
+                            color: widget.item.hasDolbyVision ? AppColors.dolbyVision : Colors.amber,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.item.hasDolbyVision ? "DOLBY VISION" : "HDR10 / HDR10+",
+                                style: TextStyle(
+                                  color: widget.item.hasDolbyVision ? AppColors.dolbyVision : Colors.amber,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const Text(
+                                "libplacebo GPU-Next 硬件直通点亮",
+                                style: TextStyle(color: Colors.white70, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -284,6 +371,12 @@ class _PlayerViewState extends State<PlayerView> {
                   ],
 
                   BDInfoCapsuleWidget(item: widget.item),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.analytics_outlined, color: Colors.white70, size: 20),
+                    tooltip: "技术监控 (I)",
+                    onPressed: _openStatsModal,
+                  ),
                 ],
               ),
 

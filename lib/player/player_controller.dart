@@ -24,14 +24,22 @@ class MediaLibPlayerController extends ChangeNotifier {
   Duration currentPosition = Duration.zero;
   Duration totalDuration = Duration.zero;
   double playbackSpeed = 1.0;
+  double _volume = 100.0;
 
   // 杜比视界与渲染参数
   bool isDolbyVisionActive = false;
   String activeAudioTrack = "";
   String activeSubtitleTrack = "";
 
+  double get volume => _volume;
   MediaItemModel? get currentItem => _currentItem;
   EpisodeModel? get currentEpisode => _currentEpisode;
+
+  void setVolume(double vol) {
+    _volume = vol.clamp(0.0, 100.0);
+    player.setVolume(_volume);
+    notifyListeners();
+  }
 
   MediaLibPlayerController() {
     // 1. 初始化底层 media_kit / libmpv 发烧级核心
